@@ -1,6 +1,7 @@
 from Tkinter import *
 import smbus
 from functools import partial
+from operator import xor
 
 registers = ["BMC", "BMS", "ID#1", "ID#2", "ANA", "ANL", "ANE", "ANN",
                      "RES", "RES", "RES", "RES", "RES", "RES", "RES", "RES", 
@@ -33,13 +34,13 @@ class Application(Frame):
         buttonFrame.grid(row = 0, column = 0, rowspan = 9, columnspan = 2, sticky = W+N)
         
         mode = IntVar()
-        self.mode1 = Radiobutton(buttonFrame, text="Isolate", variable=mode, value=1, command = self.isolate).grid(column=0, row=3, sticky=W+N+SW)
-        self.mode2 = Radiobutton(buttonFrame, text="Loopback", variable=mode, value=2, command = self.loopback).grid(column=0, row=4, sticky=W+N+SW)
-        self.mode3 = Radiobutton(buttonFrame, text="Normal", variable=mode, value=3, command = self.normal).grid(column=0, row=5, sticky=W+N+SW)
+        self.mode1 = Radiobutton(buttonFrame, text="Isolate", variable=mode, value=1, command = partial(self.buttonPress, "Iso")).grid(column=0, row=3, sticky=W+N+SW)
+        self.mode2 = Radiobutton(buttonFrame, text="Loopback", variable=mode, value=2, command = partial(self.buttonPress, "Lbk")).grid(column=0, row=4, sticky=W+N+SW)
+        self.mode3 = Radiobutton(buttonFrame, text="Normal", variable=mode, value=3, command = partial(self.buttonPress, "Nml")).grid(column=0, row=5, sticky=W+N+SW)
 
         speed = IntVar()
-        self.tenBT = Radiobutton(buttonFrame, text="10B-T", variable=speed, value=10, command = self.tenBT).grid(column=1, row=3, sticky=W+E+N+S)
-        self.hunBT = Radiobutton(buttonFrame, text="100B-T", variable=speed, value=100, command = self.hunBT).grid(column=1, row=4, sticky=W+E+N+S)
+        self.tenBT = Radiobutton(buttonFrame, text="10B-T", variable=speed, value=10, command = partial(self.buttonPress, "Lsp")).grid(column=1, row=3, sticky=W+E+N+S)
+        self.hunBT = Radiobutton(buttonFrame, text="100B-T", variable=speed, value=100, command = partial(self.buttonPress, "Hsp")).grid(column=1, row=4, sticky=W+E+N+S)
 
         self.ctlFrame = Frame(buttonFrame, bg="yellow")
         self.ctlFrame.grid(row = 9, column = 0, rowspan = 1, columnspan = 2, sticky = W+E+N+S)
@@ -64,10 +65,10 @@ class Application(Frame):
         self.ctrlCanvas.create_window(78, 94, window=self.autoNeg)
 
 
-        self.pwdButton = Button(buttonFrame, text="PwDn", command=self.PwDn, width = 10).grid(column=0, row=0, sticky=W+E+N+S)
-        self.rstButton = Button(buttonFrame, text="Reset", command=self.Reset, width = 10).grid(column=1, row=0, sticky=W+E+N+S)
-        self.rfsButton = Button(buttonFrame, text="Refresh", command=self.getRegisterValues, width = 10).grid(column=0, row=1, sticky=W+E+N+S)
-        self.rttButton = Button(buttonFrame, text="Restart", command=self.Refresh, width = 10).grid(column=1, row=1, sticky=W+E+N+S)
+        self.pwdButton = Button(buttonFrame, text="PwDn", command=partial(self.buttonPress, "Pwr"), width = 10).grid(column=0, row=0, sticky=W+E+N+S)
+        self.rstButton = Button(buttonFrame, text="Reset", command=partial(self.buttonPress, "Rst"), width = 10).grid(column=1, row=0, sticky=W+E+N+S)
+        self.rfsButton = Button(buttonFrame, text="Refresh", command=partial(self.buttonPress, "Rfs"), width = 10).grid(column=0, row=1, sticky=W+E+N+S)
+        self.rttButton = Button(buttonFrame, text="Restart", command=partial(self.buttonPress, "Rtt"), width = 10).grid(column=1, row=1, sticky=W+E+N+S)
 
 
         blankFrame = Frame(master, bg="")
@@ -82,29 +83,33 @@ class Application(Frame):
                 #if registers[r*8+c] != "RES":
                     self.regButton.append(Button(registerFrame, text=registers[r*8+c], command=partial(self.i2cRead, 1, 0x62, ((r*8+c)*2), 2), width = 4).grid(column=c, row=r*2, sticky=W+N))
                     Entry(registerFrame, textvariable=regValues[r*8+c], width=6).grid(column=c, row=r*2+1, sticky=W+N)
+        self.tick()
                     
     def getRegisterValues(self):
+        print("Getting all registers...")
         value = [1, 1]
         for r in range(4):
             for c in range(8):
                 #if registers[r*8+c] != "RES":
                     value = self.i2cRead(1, 0x62, ((r*8+c)*2), 2)
                     self.setRegValue((r*8+c), value)            
-        value = self.setLEDs()
-
+        
     def setRegValue(self, reg, value):
         intVal = value[1]*256+value[0]
         regValues[reg].set(hex(intVal))
         regValues[reg].set("0x" + '{:04x}'.format(intVal))
 
     def setLEDs(self):
-        tempVal = int(regValues[1].get(), 16)
+        print("Setting LEDs")
+        #tempVal = int(regValues[1].get(), 16)
         self.ctrlCanvas.itemconfigure(self.led1, fill="red")
         return -1
 
     def i2cWrite(self, busNr, devAddr, regAddr, values):
         bus = smbus.SMBus(busNr)
         bus.write_i2c_block_data(devAddr, regAddr, values)
+        print("Writing i2cset -y ", busNr," ", devAddr, " ", regAddr, " ", values)
+        self.setRegValue(regAddr/2, values)
     
     def i2cRead(self, busNr, devAddr, regAddr, numBytes):
         bus = smbus.SMBus(busNr)
@@ -112,36 +117,44 @@ class Application(Frame):
         print ("reg Addr ", regAddr, " value ", values)
         self.setRegValue((regAddr/2), values)
         return values
-
-    def openI2CDevice(busNr):
-        value = smbus.SMBus(busNr)
-        return value
-
-    def PwDn(self):
+    
+    def buttonPress(self, command):
         values = self.i2cRead(1, 0x62, 0, 2)
+        if command == "Pwr":
+            print("Power Down Pressed! setting BCM register bit 11 to ?")
+            values[1] = xor(values[1], 0x08)
+        elif command == "Lbk":
+            print("Loopback selected setting BCM register bit 14 to '1'")
+            values[1] = values[1] or 0x40
+        elif command == "Iso":
+            print("Isolate selected setting BCM register bit 10 to '1'")
+            values[1] = values[1] or 0x04
+        elif command == "Rst":
+            print("Reset pressed setting BCM register bit 15 to '1'")
+            values[1] = values[1] or 0x80
+        elif command == "Nml":
+            print("Normal selected setting BCM register bits 14 & 10 to '0'")
+            values[1] = values[1] and 0xBB
+        elif command == "Rtt":
+            print("Restart pressed setting BCM register bit 9 to '1'")
+            values[1] = values[1] or 0x02
+        elif command == "Rfs":
+            print("Refresh pressed!")
+            self.getRegisterValues()
+        elif command == "Lsp":
+            print("Low Speed selected setting BCM register bit 13 to '0'")
+            values[1] = values[1] and 0xDF
+        elif command == "Hsp":
+            print("High speed selected setting BCM register bit 13 to '1'")
+            values[1] = values[1] or 0x20
+        else:
+            print("Command not recognised", command)
+            
         self.i2cWrite(1, 0x62, 0, values)
-        self.ctrlCanvas.itemconfigure(self.led2, fill="green")
-        
-    def Reset(self):
-        self.ctrlCanvas.itemconfigure(self.led3, fill="red")
-        
-    def Refresh(self):
-        self.ctrlCanvas.itemconfigure(self.led3, fill="green")
-        
-    def isolate(self):
-        print("isolate")
 
-    def loopback(self):
-        print("Loopback")
-
-    def normal(self):
-        print("Normal")
-
-    def tenBT(self):
-        print("10BT")
-
-    def hunBT(self):
-        print("100BT")
+    def tick(self):
+        self.setLEDs()
+        self.ctlFrame.after(1000, self.tick)
 
 
 root = Tk()
