@@ -33,10 +33,12 @@ class Application(Frame):
         self.mode1 = Radiobutton(buttonFrame, text="Isolate", variable=self.mode, value="Iso", command = partial(self.buttonPress, "Iso")).grid(column=0, row=3, sticky=W+N+SW)
         self.mode2 = Radiobutton(buttonFrame, text="Loopback", variable=self.mode, value="Lpk", command = partial(self.buttonPress, "Lbk")).grid(column=0, row=4, sticky=W+N+SW)
         self.mode3 = Radiobutton(buttonFrame, text="Normal", variable=self.mode, value="Nml", command = partial(self.buttonPress, "Nml")).grid(column=0, row=5, sticky=W+N+SW)
+        self.mode.set("Nml")
 
         self.speed = IntVar()
         self.tenBT = Radiobutton(buttonFrame, text="10B-T", variable=self.speed, value=10, command = partial(self.buttonPress, "Lsp")).grid(column=1, row=3, sticky=W+E+N+S)
         self.hunBT = Radiobutton(buttonFrame, text="100B-T", variable=self.speed, value=100, command = partial(self.buttonPress, "Hsp")).grid(column=1, row=4, sticky=W+E+N+S)
+        self.speed.set(100)
 
         self.ctlFrame = Frame(buttonFrame, bg="yellow")
         self.ctlFrame.grid(row = 9, column = 0, rowspan = 1, columnspan = 2, sticky = W+E+N+S)
@@ -79,8 +81,6 @@ class Application(Frame):
                     Entry(registerFrame, textvariable=regValues[r*8+c], width=6).grid(column=c, row=r*2+1, sticky=W+N)
 
         self.i2cWrite(1, 0x62, 0x80, [0x01, 0x01])
-        self.mode.set("Nml")
-        self.speed.set(100)
         self.tick()
                     
     def getRegisterValues(self):
