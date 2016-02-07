@@ -13,23 +13,18 @@ regValues = ["BMC", "BMS", "ID#1", "ID#2", "ANA", "ANL", "ANE", "ANN",
                      "PHYS", "MIC", "MIS", "RES", "FCS", "REC", "PCS", "RB",
                      "LED", "PHYC", "10BT", "CDC", "RES", "EDC", "RES", "RES"]
 
-
         
 class Application(Frame):
-
 
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.grid()
         self.master.title("DP83848 Phy")
-        
-
+  
         for r in range(4):
             for c in range(8):
                 regValues[r*8+c]=StringVar()
-                
-        
-            
+  
         buttonFrame = Frame(master, bg="", bd=10, height=100)
         buttonFrame.grid(row = 0, column = 0, rowspan = 9, columnspan = 2, sticky = W+N)
         
@@ -64,12 +59,10 @@ class Application(Frame):
         self.autoNeg.pack()
         self.ctrlCanvas.create_window(78, 94, window=self.autoNeg)
 
-
         self.pwdButton = Button(buttonFrame, text="PwDn", command=partial(self.buttonPress, "Pwr"), width = 10).grid(column=0, row=0, sticky=W+E+N+S)
         self.rstButton = Button(buttonFrame, text="Reset", command=partial(self.buttonPress, "Rst"), width = 10).grid(column=1, row=0, sticky=W+E+N+S)
         self.rfsButton = Button(buttonFrame, text="Refresh", command=partial(self.buttonPress, "Rfs"), width = 10).grid(column=0, row=1, sticky=W+E+N+S)
         self.rttButton = Button(buttonFrame, text="Restart", command=partial(self.buttonPress, "Rtt"), width = 10).grid(column=1, row=1, sticky=W+E+N+S)
-
 
         blankFrame = Frame(master, bg="")
         blankFrame.grid(row = 0, column = 2, rowspan = 8, columnspan = 1, sticky = W+E+N+S)
@@ -78,11 +71,13 @@ class Application(Frame):
         registerFrame.grid(row = 0, column = 4, rowspan = 8, columnspan = 8, sticky = E)
 
         self.regButton = list()
+        self.regEntry = list()
         for r in range(4):
             for c in range(8):
                 #if registers[r*8+c] != "RES":
-                    self.regButton.append(Button(registerFrame, text=registers[r*8+c], command=partial(self.i2cRead, 1, 0x62, ((r*8+c)*2), 2), width = 4).grid(column=c, row=r*2, sticky=W+N))
-                    Entry(registerFrame, textvariable=regValues[r*8+c], width=6).grid(column=c, row=r*2+1, sticky=W+N)
+                    self.regButton.append(Button(registerFrame, text=registers[r*8+c], command=partial(self.i2cWrite, 1, 0x62, ((r*8+c)*2), regEntry[r*8+c].get()), width = 4).grid(column=c, row=r*2, sticky=W+N))
+                    self.regEntry.append(Entry(registerFrame, textvariable=regValues[r*8+c], width=6).grid(column=c, row=r*2+1, sticky=W+N))
+
         self.tick()
                     
     def getRegisterValues(self):
